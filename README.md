@@ -29,11 +29,14 @@
 
 ## 快速开始
 
-### 本地使用
+### 本地部署
 
 1. 克隆仓库
 2. 直接用浏览器打开 `index.html`
 3. 无需构建、无需服务器，双击即用
+
+### 在线使用
+登录网站 https://LitgameMT.github.io/FZU-graduation-helper/”即可
 
 ### 目录结构
 
