@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>毕业设计归档助手</title>
+
+<!-- CDN 依赖 -->
+<script src="lib/pdf.min.js"></script>
+
+<script src="lib/pdf-lib.min.js"></script>
+<script src="lib/mammoth.browser.min.js"></script>
+<script src="lib/jszip.min.js"></script>
+<script src="lib/FileSaver.min.js"></script>
+
+</script>
+
+<style>
+:root {
+  --primary: #4f46e5;
+  --primary-light: #6366f1;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.header {
+  background: linear-gradient(135deg, #1e3a5f 0%, #4f46e5 100%);
+  color: #fff;
+  padding: 20px 0;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: .02em; }
+.header p { font-size: .85rem; opacity: .8; margin-top: 2px; }
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px 20px 40px;
+}
+
+/* Card */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+.card-header {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+}
+.card-header .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Form inputs */
+.form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.form-group { flex: 1; min-width: 180px; }
+.form-group label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-muted); }
+.form-group input {
+  width: 100%; padding: 10px 12px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: .95rem; transition: border-color .2s; outline: none;
+}
+.form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .25s;
+  background: #fafbfc;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--primary);
+  background: #f0eeff;
+}
+.upload-zone .icon { font-size: 2.4rem; margin-bottom: 8px; }
+.upload-zone .main-text { font-size: 1rem; font-weight: 600; }
+.upload-zone .sub-text { font-size: .8rem; color: var(--text-muted); margin-top: 4px; }
+
+/* File list */
+.file-list { margin-top: 12px; }
+.file-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: #f8fafc; border-radius: 8px;
+  margin-bottom: 6px; font-size: .88rem; border: 1px solid var(--border);
+}
+.file-item .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
+.file-item .ftag {
+  font-size: .72rem; padding: 2px 8px; border-radius: 12px;
+  font-weight: 600; white-space: nowrap;
+}
+.ftag-pdf { background: #fef3c7; color: #92400e; }
+.ftag-docx { background: #dbeafe; color: #1e40af; }
+.ftag-doc { background: #fed7aa; color: #9a3412; }
+.ftag-img { background: #d1fae5; color: #065f46; }
+.ftag-other { background: #f1f5f9; color: #475569; }
+.file-item .remove-btn {
+  background: none; border: none; color: var(--danger); cursor: pointer;
+  font-size: 1.1rem; padding: 2px 6px; border-radius: 4px; margin-left: 4px;
+}
+.file-item .remove-btn:hover { background: #fef2f2; }
+
+/* Section table */
+.section-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.section-table th { background: #f1f5f9; padding: 10px 8px; text-align: left; font-weight: 600; font-size: .8rem; color: var(--text-muted); }
+.section-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+.section-table input {
+  width: 60px; padding: 4px 8px; border: 1.5px solid var(--border);
+  border-radius: 6px; text-align: center; font-size: .85rem;
+}
+.section-table input:focus { border-color: var(--primary); outline: none; }
+.section-table .status-ok { color: var(--success); font-weight: 700; }
+.section-table .status-skip { color: var(--text-muted); }
+.section-table .status-warn { color: var(--warning); font-weight: 700; }
+
+/* Checklist */
+.checklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.checklist-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border-radius: 8px; font-size: .85rem; font-weight: 500;
+}
+.checklist-item.ok { background: #f0fdf4; color: #166534; }
+.checklist-item.missing { background: #fef2f2; color: #991b1b; }
+.checklist-item.warn { background: #fffbeb; color: #92400e; }
+.checklist-item .icon-dot { font-size: 1rem; flex-shrink: 0; }
+.checklist-section-title {
+  grid-column: 1 / -1;
+  font-weight: 700; font-size: .85rem; margin-top: 6px;
+  padding-bottom: 2px; border-bottom: 1px solid var(--border);
+  color: var(--primary);
+}
+
+/* Buttons */
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.btn {
+  padding: 10px 22px; border-radius: 8px; font-size: .92rem; font-weight: 600;
+  border: none; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-light); transform: translateY(-1px); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover:not(:disabled) { background: #059669; transform: translateY(-1px); }
+.btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
+.btn-outline:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.btn-danger-outline { background: #fff; border: 1.5px solid var(--danger); color: var(--danger); }
+.btn-danger-outline:hover { background: #fef2f2; }
+
+/* Progress */
+.progress-bar {
+  height: 6px; border-radius: 3px; background: var(--border); margin-top: 12px; overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%; border-radius: 3px; background: var(--success); transition: width .5s ease;
+}
+
+/* Status message */
+.status-msg {
+  padding: 10px 14px; border-radius: 8px; font-size: .85rem; margin-top: 10px;
+  display: none;
+}
+.status-msg.show { display: block; }
+.status-msg.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.status-msg.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.status-msg.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.status-msg.warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+
+/* Spinner */
+.spinner {
+  display: inline-block; width: 18px; height: 18px; border: 2px solid #e2e8f0;
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Material checklist table (步骤2) */
+.material-table { width: 100%; border-collapse: collapse; font-size: .82rem; margin-bottom: 16px; }
+.material-table th { background: #f1f5f9; padding: 8px 10px; text-align: left; font-weight: 600; font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+.material-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.material-table .code { font-family: "SF Mono","Fira Code","Consolas",monospace; font-size: .78rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+.material-table .required-tag { color: var(--danger); font-weight: 700; font-size: .75rem; }
+.material-table .optional-tag { color: var(--text-muted); font-size: .75rem; }
+
+/* Collapsible */
+.collapse-toggle { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; font-size: .85rem; font-weight: 600; color: var(--primary); margin-bottom: 8px; }
+.collapse-toggle .arrow { transition: transform .2s; display: inline-block; }
+.collapse-toggle.open .arrow { transform: rotate(90deg); }
+.collapse-content { display: none; }
+.collapse-content.open { display: block; }
+
+/* API Config */
+.api-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.api-config-grid .full-width { grid-column: 1 / -1; }
+.api-hint { font-size: .78rem; color: var(--text-muted); margin-top: 4px; }
+.api-status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+.api-status.off { background: #d1d5db; }
+.api-status.on { background: var(--success); }
+.api-status.testing { background: var(--warning); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* Mode tabs */
+.mode-tabs { display: flex; gap: 0; margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--border); }
+.mode-tab { flex: 1; padding: 10px 16px; text-align: center; cursor: pointer; font-size: .9rem; font-weight: 600; background: #f8fafc; color: var(--text-muted); transition: all .2s; border: none; outline: none; }
+.mode-tab:first-child { border-right: 1.5px solid var(--border); }
+.mode-tab.active { background: var(--primary); color: #fff; }
+.mode-tab:hover:not(.active) { background: #eef2ff; color: var(--primary); }
+
+/* Divider */
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* File rename */
+.file-item .rename-input { flex: 1; padding: 2px 6px; border: 1.5px solid var(--primary); border-radius: 4px; font-size: .85rem; margin-right: 8px; outline: none; }
+.file-item .action-btn { background: none; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: .75rem; padding: 2px 8px; color: var(--text-muted); margin-left: 2px; white-space: nowrap; }
+.file-item .action-btn:hover { background: #f1f5f9; color: var(--text); }
+.btn-sm { font-size: .78rem; padding: 5px 14px; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .container { padding: 10px 12px 30px; }
+  .card { padding: 14px 16px; }
+  .form-row { flex-direction: column; gap: 8px; }
+  .checklist { grid-template-columns: 1fr; }
+  .btn-row { flex-direction: column; }
+  .btn { justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>福州大学毕业设计归档助手</h1>
+  <p>文件规范依据《福州大学本科生毕业设计（论文）工作管理办法》 | 辅助文件核对、文件合并</p>
+</div>
+
+<div class="container">
+
+  <!-- 步骤1：基本信息 -->
+  <div class="card">
+    <div class="card-header"><span class="step-num">1</span> 基本信息</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>学号</label>
+        <input type="text" id="studentId" placeholder="请输入学号" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label>姓名</label>
+        <input type="text" id="studentName" placeholder="请输入姓名" maxlength="20">
+      </div>
+    </div>
+  </div>
+
+  <!-- 步骤2：文件上传 -->
+  <div class="card">
+    <div class="card-header"><span class="step-num">2</span> 上传材料文件</div>
+
+    <!-- 模式切换 -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="modeTabPrint" onclick="switchMode('print')">最终打印版</button>
+      <button class="mode-tab" id="modeTabElectronic" onclick="switchMode('electronic')">电子提交版</button>
+    </div>
+
+    <!-- 材料清单（可折叠） -->
+    <div class="collapse-toggle open" id="toggleChecklist" onclick="document.getElementById('materialChecklist').classList.toggle('open');this.classList.toggle('open');">
+      <span class="arrow">&#9654;</span> 查看所需材料清单与命名规范
+    </div>
+    <div class="collapse-content open" id="materialChecklist">
+      <div id="materialChecklistContent"></div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-top:4px;">
+        <strong>提示：</strong>文件命名只需<strong>包含上述关键词</strong>即可被自动识别（如"张三-任务书-终稿.pdf"）
+        。非 PDF 格式（.docx / 图片）会自动转换为 PDF。<br>
+        <span style="color:#991b1b;"><strong>⚠ 资料封面仅接受 PDF 格式</strong>，为防止排版错误，含有封面的文件请先转为 PDF 再导入。</span>
+      </p>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- 重要提醒 -->
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.83rem;color:#8d6e00;display:flex;align-items:flex-start;gap:8px;">
+      <span style="font-size:1.2rem;flex-shrink:0;">⚠️</span>
+      <span><strong>重要提醒：</strong>请确保在上传文件之前，已完成<strong>毕业论文（设计）检查表</strong>中的所有自查项目并签字确认。检查表需经指导教师审核后方可归档。</span>
+    </div>
+
+    <!-- 最终打印版上传区 -->
+    <div id="printUploadArea">
+      <!-- 第一本提醒 -->
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.83rem;color:#0369a1;display:flex;align-items:flex-start;gap:8px;">
+        <span style="font-size:1.2rem;flex-shrink:0;">📘</span>
+        <span><strong>第一本（论文正文）提示：</strong>打印所需第一本论文符合论文格式及打印要求即可，无需再做整理。本工具仅处理<strong>第二本（资料册）</strong>及<strong>单独打印文件</strong>的归档。</span>
+      </div>
+
+      <div class="upload-zone" id="uploadZone">
+        <div class="icon">📁</div>
+        <div class="main-text">拖拽资料文件到此区域，或点击选择</div>
+        <div class="sub-text">PDF / Word(.docx) / 图片 | 可一次上传多个</div>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.gif,.bmp,.webp" style="display:none">
+
+      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:.82rem;color:#991b1b;">
+        <strong>🚫 注意：</strong>毕业设计(论文)答辩委员会<strong>决议书</strong>、<strong>评阅人评审表</strong>、<strong>指导教师评审表</strong>、<strong>查重报告</strong>、<strong>论文检查表</strong>需要单独打印，<strong>不要胶装进资料里面</strong>。这些文件将在 ZIP 包中作为独立 PDF 存放。
+      </div>
+
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:.82rem;color:#0369a1;">
+        <strong>📌 提示：</strong><strong>资料目录.pdf</strong> 已内置在系统中，无需上传。资料那本的<strong>封面</strong>请使用论文封面模板，在标题后面加"（资料）"字样。
+      </div>
+
+      <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:.83rem;color:#92400e;">
+        <strong>💡 提示：</strong>如果需要对<strong>评议表、查重报告</strong>进行合并处理，可以切换到<strong>「电子提交版」</strong>模式进行合并。
+      </div>
+    </div>
+
+    <!-- 电子提交版上传区（共用上传区） -->
+    <div id="electronicUploadArea" style="display:none;">
+      <div class="upload-zone" id="uploadZoneElectronic">
+        <div class="icon">📁</div>
+        <div class="main-text">拖拽所有文件到此区域，或点击选择</div>
+        <div class="sub-text">支持 PDF、Word (.docx)、图片 | 需包含论文.pdf + 所有资料文件</div>
+      </div>
+      <input type="file" id="fileInputElectronic" multiple accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.gif,.bmp,.webp" style="display:none">
+    </div>
+
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn btn-outline btn-sm" id="btnAIRecognize" disabled title="使用 AI 重新识别所有文件名对应的类别">AI 智能识别文件名</button>
+    </div>
+    <div class="file-list" id="fileList"></div>
+    <div class="status-msg" id="uploadMsg"></div>
+  </div>
+
+  <!-- AI 辅助配置（可折叠） -->
+  <div class="card" style="background:#fafbff;">
+    <div class="collapse-toggle" id="toggleAI" onclick="document.getElementById('aiConfig').classList.toggle('open');this.classList.toggle('open');">
+      <span class="arrow">&#9654;</span> AI 辅助识别配置（可选，用于智能匹配文件）
+    </div>
+    <div class="collapse-content" id="aiConfig">
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:10px;">
+        开启后，系统会将文件名发送给 AI 模型进行语义匹配，提高文件自动分类的准确率。<br>
+        兼容 OpenAI API 格式（支持 OpenAI / DeepSeek / 通义千问 / Kimi 等）。<strong>不填写则使用本地关键词匹配。</strong>
+      </p>
+      <div class="api-config-grid">
+        <div class="form-group">
+          <label>API 地址 (Base URL)</label>
+          <input type="text" id="aiBaseUrl" placeholder="https://api.openai.com/v1" value="">
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="aiApiKey" placeholder="sk-..." value="">
+        </div>
+        <div class="form-group">
+          <label>模型名称</label>
+          <input type="text" id="aiModel" placeholder="gpt-4o-mini / deepseek-chat" value="gpt-4o-mini">
+        </div>
+        <div class="form-group">
+          <label>状态</label>
+          <div style="display:flex;align-items:center;gap:10px;height:40px;">
+            <span id="aiStatusDot" class="api-status off"></span>
+            <span id="aiStatusText" style="font-size:.85rem;">未启用</span>
+            <button class="btn btn-outline" id="btnTestAI" style="font-size:.78rem;padding:4px 12px;" disabled>测试连接</button>
+          </div>
+        </div>
+      </div>
+      <div class="api-hint">
+        key 仅存储在浏览器内存中，不会被上传到任何第三方服务器。关闭页面后需重新填写。
+      </div>
+    </div>
+  </div>
+
+  <!-- 步骤3：缺失检测清单 -->
+  <div class="card" id="checkCard" style="display:none">
+    <div class="card-header"><span class="step-num">3</span> 文件完整性检查</div>
+    <div class="checklist" id="checklist"></div>
+    <div class="progress-bar" id="progressBar" style="display:none;">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- 步骤4：生成与下载 -->
+  <div class="card">
+    <div class="card-header"><span class="step-num">4</span> 生成归档文件</div>
+    <div class="btn-row">
+      <button class="btn btn-success" id="btnGenerate" disabled>生成归档文件并下载 ZIP</button>
+      <button class="btn btn-outline" id="btnReset">重置全部</button>
+    </div>
+    <div class="status-msg" id="genMsg"></div>
+  </div>
+
+</div>
+
+<script>
+// === 内置资料目录 PDF (base64) ===
+const EMBEDDED_ZILIAO_MULU_B64 = "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GSBAgAABAgQIECBAgAABAgQIECBAAEAn+j7AVwMECBAgQIAAAf7Nge4vBwgQIECAAAECBPizBL1/N0CAAAH+dKF/T4AAAQIECBAgQIAAAQIECPCnA4OrAQIECBAgQIAAAQIE+BOH/ydAgAABAgT4/sPo9Q8P40aAAH/G4Q8CBAjwJwHL5wMECBAgQIAAAQIECBDgjw8rWwECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQ4HZh9X8IECBAgAABAvzrCGufDxAgQIAAAQIECBAgQIAAAQIECPCvMhz5xwEMHE0CBAgQIECAAAECBAgQIECAAAECBAgQ4E8fNn4uQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQL8ScDkrwQIECBAgAABAgQIECDAnx3YfPJPHo59+fsH028HCBAgQIAAAQIECBAgQIAAAQL8y4PjvxUgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgQIAAAQIECBAgwL882PqZAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQ4M8MqKin4Uy0EaVR+9vxfCMaRI/+hjrz3XvufeDY1rn7z5+9bzwaNiaNOG5oUK1msxU3mq1I11qPFqI3o29G42hnZ6DWs52l6NlsZzCMnsl2Un37/v6v7YwzfdPvfUY1++N3x4vN1meai59p5tGj29v6vzqzrf/9vm5rNByfPTuanjt73/lz5+7fmtq7By4ncXI5TuLFxX6cdRa++ddarUaj1frKwqL+qynINQXvRDejO6Jf/SAa7f/Ot3uD6Jne++5m8f39//nbvVH0zKn393/vW5o4e9UEHXt//w93lnTC3CnzZ3ls/nS60TPR+jjRVP8XOjVZ7x4xxVJd/sjxcXfcnU51lqm+aTp2bKRvtqen5qfHn377yOQz0yNPv708UNN88K6G+ctvDxZ1Jx/d7l/QPexdUGe6/525Xjhzpnd2u/v7+v89927bf5GGB3SXjzVGwyXD7CkxvtloNA0n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DTw8L0NvdW50IDEgL0tpZHMgWzYgMCBSXSAvVHlwZSAvUGFnZXM+Pg1lbmRvYmoNMSAwIG9iag08PC9OYW1lcyA8PC9EZXN0cyA0IDAgUj4+IC9PdXRsaW5lcyA1IDAgUiAvUGFnZXMgMiAwIFIgL1R5cGUgL0NhdGFsb2c+Pg1lbmRvYmoNNCAwIG9iag08PC9OYW1lcyBbXT4+DWVuZG9iag01IDAgb2JqDTw8Pj4NZW5kb2JqDXhyZWYNCjAgMjANCjAwMDAwMDAwMDAgNjU1MzUgZg0KMDAwMDA1MjI0OCAwMDAwMCBuDQowMDAwMDUyMTkzIDAwMDAwIG4NCjAwMDAwMDAwMTYgMDAwMDAgbg0KMDAwMDA1MjMzNSAwMDAwMCBuDQowMDAwMDUyMzY0IDAwMDAwIG4NCjAwMDAwMDAzNTYgMDAwMDAgbg0KMDAwMDAwMDUyMiAwMDAwMCBuDQowMDAwMDAwOTc4IDAwMDAwIG4NCjAwMDAwMDExMTUgMDAwMDAgbg0KMDAwMDAwMTUzNiAwMDAwMCBuDQowMDAwMDAxNzA3IDAwMDAwIG4NCjAwMDAwMDIwMTYgMDAwMDAgbg0KMDAwMDAwMDI4NCAwMDAwMCBuDQowMDAwMDIwNDUzIDAwMDAwIG4NCjAwMDAwMjA1OTIgMDAwMDAgbg0KMDAwMDAyMTEzNyAwMDAwMCBuDQowMDAwMDIxMzE4IDAwMDAwIG4NCjAwMDAwMjE2MjcgMDAwMDAgbg0KMDAwMDAwMTQ2MyAwMDAwMCBuDQp0cmFpbGVyPDwvU2l6ZSAyMCAvUm9vdCAxIDAgUiAvSW5mbyAzIDAgUiAvSUQgWzxlMWE0NGE0NjczMjQ0Y2U2YTliYTE2MjQzMGI4ODA4Mz48YWNjNTBkZDljZTc0NGI3MGFjNDdmZDZhMzYyMjMwYmM+XT4+DXN0YXJ0eHJlZg01MjM4NA0lJUVPRg0=";
+
+// ============================================================
+// pdf.js Worker 配置
+// ============================================================
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+
+// ============================================================
+// 全局状态
+// ============================================================
+const state = {
+  studentId: '',
+  studentName: '',
+  mode: 'print',            // 'print' = 最终打印版, 'electronic' = 电子提交版
+  files: [],               // 所有上传文件 {name, file, type}
+  thesisFile: null,        // 电子版用：论文.pdf 的 File 对象
+  thesisBytes: null,       // 电子版用：论文.pdf 的 ArrayBuffer
+  // 文件分类结果：{ categoryKey: fileEntry }
+  classified: {},
+};
+
+// 文件类别及其匹配关键词
+// book: 1=论文正文, 2=过程资料(打印版), 3=图纸, 4=电子提交版专用
+const CATEGORY_RULES = [
+  // 第一本来源（论文拆分，无需独立上传）
+  // 第二本：最终打印版过程资料
+  { key: '资料封面',         keywords: ['资料封面'],                                book: 2 },
+  { key: '资料目录',         keywords: ['资料目录'],                                book: 2 },
+  { key: '任务书',           keywords: ['任务书'],                                  book: 2 },
+  { key: '开题报告',         keywords: ['开题报告'],                                book: 2 },
+  { key: '文献综述',         keywords: ['文献综述'],                                book: 2 },
+  { key: '外文原文',         keywords: ['外文原文', '原文'],                         book: 2 },
+  { key: '外文译文',         keywords: ['译文'],                                    book: 2 },
+  { key: '中期检查表',       keywords: ['中期检查'],                                book: 2 },
+  { key: '指导教师评审表',   keywords: ['指导教师评审', '指导老师评审', '指导教师评阅', '指导老师评阅', '指导教师成绩'], book: 2 },
+  { key: '评阅教师评审表',   keywords: ['评阅教师评审', '评阅老师评审', '评阅教师成绩', '评阅老师成绩'], book: 2 },
+  { key: '决议书',           keywords: ['决议书', '答辩决议'],                       book: 2 },
+  { key: '抽检送审意见书',   keywords: ['抽检', '送审', '抽检送审'],                  book: 2 },
+  // AIGC查重（必须在"查重"之前，优先匹配）
+  { key: 'AIGC查重报告',     keywords: ['AIGC查重', 'AIGC', 'AIGC检测', 'aigc'],    book: 2 },
+  { key: '查重报告',         keywords: ['查重'],                                    book: 2 },
+  { key: '检查表',           keywords: ['检查表'],                                  book: 2 },
+  { key: '图纸',             keywords: ['图纸', 'A3'],                              book: 3 },
+];
+
+// ============================================================
+// DOM 元素引用
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const dom = {
+  studentId: $('studentId'),
+  studentName: $('studentName'),
+  uploadZone: $('uploadZone'),
+  fileInput: $('fileInput'),
+  fileList: $('fileList'),
+  uploadMsg: $('uploadMsg'),
+  checkCard: $('checkCard'),
+  checklist: $('checklist'),
+  progressBar: $('progressBar'),
+  progressFill: $('progressFill'),
+  btnGenerate: $('btnGenerate'),
+  btnReset: $('btnReset'),
+  genMsg: $('genMsg'),
+  btnAIRecognize: $('btnAIRecognize'),
+  printUploadArea: $('printUploadArea'),
+  electronicUploadArea: $('electronicUploadArea'),
+  uploadZoneElectronic: $('uploadZoneElectronic'),
+  fileInputElectronic: $('fileInputElectronic'),
+  // 模式切换
+  modeTabPrint: $('modeTabPrint'),
+  modeTabElectronic: $('modeTabElectronic'),
+  materialChecklistContent: $('materialChecklistContent'),
+  // AI 配置
+  aiBaseUrl: $('aiBaseUrl'),
+  aiApiKey: $('aiApiKey'),
+  aiModel: $('aiModel'),
+  aiStatusDot: $('aiStatusDot'),
+  aiStatusText: $('aiStatusText'),
+  btnTestAI: $('btnTestAI'),
+};
+
+// ============================================================
+// 工具函数
+// ============================================================
+/** 根据文件名判断文件类型 */
+function getFileType(fileName) {
+  const ext = fileName.split('.').pop().toLowerCase();
+  if (ext === 'pdf') return 'pdf';
+  if (ext === 'docx') return 'docx';
+  if (ext === 'doc') return 'doc';  // 旧版 Word，不支持转换
+  if (['png','jpg','jpeg','gif','bmp','webp'].includes(ext)) return 'image';
+  return 'other';
+}
+
+/** 规范化字符串：去空格、转小写、去掉常见分隔符 */
+function normalize(str) {
+  return str.replace(/[\s\-_（）()【】\[\]《》.,，。、]/g, '').toLowerCase();
+}
+
+/** 文件名匹配关键词 */
+function matchKeywords(fileName, keywords) {
+  const n = normalize(fileName);
+  return keywords.some(kw => n.includes(normalize(kw)));
+}
+
+/** 判断文件是否为论文主文件 */
+function isThesisFile(fileName) {
+  const n = normalize(fileName);
+  // 优先精确匹配"论文.pdf"或"毕业论文.pdf"
+  if (n === '论文.pdf' || n === '毕业论文.pdf' || n === '毕业论文pdf') return true;
+  // 包含"论文"关键词但不是其他材料
+  const excludeKeys = ['开题报告', '文献综述', '资料封面', '资料目录', '检查表', '中期检查'];
+  if (!excludeKeys.some(k => normalize(fileName).includes(normalize(k))) && n.includes(normalize('论文'))) {
+    return true;
+  }
+  return false;
+}
+
+/** 显示状态消息 */
+function showMsg(el, text, type) {
+  el.textContent = text;
+  el.className = 'status-msg show ' + type;
+}
+function hideMsg(el) {
+  el.className = 'status-msg';
+}
+
+// ============================================================
+// 文件上传处理
+// ============================================================
+dom.uploadZone.addEventListener('click', () => dom.fileInput.click());
+dom.uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.uploadZone.classList.add('dragover'); });
+dom.uploadZone.addEventListener('dragleave', () => dom.uploadZone.classList.remove('dragover'));
+dom.uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dom.uploadZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+dom.fileInput.addEventListener('change', () => {
+  handleFiles(dom.fileInput.files);
+  dom.fileInput.value = '';
+});
+
+// 电子提交版上传区
+dom.uploadZoneElectronic.addEventListener('click', () => dom.fileInputElectronic.click());
+dom.uploadZoneElectronic.addEventListener('dragover', (e) => { e.preventDefault(); dom.uploadZoneElectronic.classList.add('dragover'); });
+dom.uploadZoneElectronic.addEventListener('dragleave', () => dom.uploadZoneElectronic.classList.remove('dragover'));
+dom.uploadZoneElectronic.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dom.uploadZoneElectronic.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+dom.fileInputElectronic.addEventListener('change', () => {
+  handleFiles(dom.fileInputElectronic.files);
+  dom.fileInputElectronic.value = '';
+});
+
+function handleFiles(fileList) {
+  const added = [];
+  for (const f of fileList) {
+    const type = getFileType(f.name);
+    if (type === 'other') {
+      showMsg(dom.uploadMsg, `跳过不支持的文件格式: ${f.name}`, 'warning');
+      continue;
+    }
+    if (type === 'doc') {
+      showMsg(dom.uploadMsg, `⚠ 注意: "${f.name}" 为旧版 .doc 格式，无法自动转为 PDF。建议用 Word 另存为 .docx 后重新上传。该文件将在归档中保留原格式。`, 'warning');
+    }
+    // 资料封面只允许 PDF 格式，防止排版错乱
+    if (matchKeywords(f.name, ['资料封面']) && type !== 'pdf') {
+      showMsg(dom.uploadMsg, `⛔ 资料封面只接受 PDF 格式。为了防止排版错误，含有封面的文件最好先转为 PDF 再导入。请将 "${f.name}" 转为 PDF 后重新上传。`, 'error');
+      continue;
+    }
+    // 避免重复
+    if (state.files.some(existing => existing.name === f.name && existing.size === f.size)) {
+      continue;
+    }
+    state.files.push({ name: f.name, file: f, type });
+    added.push(f.name);
+  }
+  if (added.length > 0) {
+    showMsg(dom.uploadMsg, `已添加 ${added.length} 个文件`, 'success');
+  }
+  renderFileList();
+  autoProcess();
+}
+
+function removeFile(index) {
+  const removed = state.files[index];
+  state.files.splice(index, 1);
+  if (state.thesisFile && state.thesisFile.name === removed.name && state.thesisFile.size === removed.size) {
+    state.thesisFile = null;
+    state.thesisBytes = null;
+    state.classified = {};
+  }
+  renderFileList();
+  autoProcess();
+}
+
+function renderFileList() {
+  // 同步 AI 按钮状态
+  dom.btnAIRecognize.disabled = !isAIConfigured() || state.files.length === 0;
+  if (state.files.length === 0) {
+    dom.fileList.innerHTML = '';
+    return;
+  }
+  const typeLabels = { pdf: 'PDF', docx: 'Word', doc: '旧版DOC', image: '图片', other: '其他' };
+  dom.fileList.innerHTML = state.files.map((f, i) => `
+    <div class="file-item" id="fileItem${i}">
+      ${f._renaming
+        ? `<input class="rename-input" id="renameInput${i}" value="${escapeHtml(f.name)}"
+             onkeydown="if(event.key==='Enter')confirmRename(${i})"
+             onblur="confirmRename(${i})">`
+        : `<span class="fname" title="${f.name}">${f.name}</span>`
+      }
+      <span class="ftag ftag-${f.type === 'doc' ? 'docx' : f.type}">${typeLabels[f.type] || f.type}</span>
+      ${!f._renaming ? `<button class="action-btn" onclick="startRename(${i})" title="重命名">✏️</button>` : ''}
+      <button class="remove-btn" onclick="removeFile(${i})" title="移除">&#10005;</button>
+    </div>
+  `).join('');
+
+  // 自动聚焦重命名输入框
+  const renamingIdx = state.files.findIndex(f => f._renaming);
+  if (renamingIdx >= 0) {
+    setTimeout(() => {
+      const inp = document.getElementById('renameInput' + renamingIdx);
+      if (inp) { inp.focus(); inp.select(); }
+    }, 50);
+  }
+}
+
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function startRename(index) {
+  state.files[index]._renaming = true;
+  renderFileList();
+}
+
+function confirmRename(index) {
+  if (index >= state.files.length) return; // 文件可能已被删除
+  const inp = document.getElementById('renameInput' + index);
+  const newName = inp ? inp.value.trim() : '';
+  state.files[index]._renaming = false;
+  if (newName && newName !== state.files[index].name) {
+    state.files[index].name = newName;
+    state.files[index].type = getFileType(newName);
+    // 重命名后重新触发分类
+    autoProcess();
+  }
+  renderFileList();
+}
+
+// ============================================================
+// 模式切换
+// ============================================================
+function switchMode(mode) {
+  state.mode = mode;
+  dom.modeTabPrint.classList.toggle('active', mode === 'print');
+  dom.modeTabElectronic.classList.toggle('active', mode === 'electronic');
+
+  if (mode === 'electronic') {
+    dom.printUploadArea.style.display = 'none';
+    dom.electronicUploadArea.style.display = 'block';
+  } else {
+    dom.printUploadArea.style.display = 'block';
+    dom.electronicUploadArea.style.display = 'none';
+  }
+
+  renderMaterialChecklist();
+  classifyFiles();
+  renderChecklist();
+  updateGenerateButton();
+}
+
+/** 渲染材料清单（根据模式动态生成） */
+function renderMaterialChecklist() {
+  if (state.mode === 'electronic') {
+    dom.materialChecklistContent.innerHTML = `
+      <table class="material-table">
+        <thead><tr><th>交付物</th><th>所需文件</th><th>建议命名格式</th><th>要求</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="4" style="text-align:center;vertical-align:middle;"><strong>文件1<br>任务书+开题+<br>文献综述+外文</strong></td>
+            <td>任务书</td><td class="code">任务书.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>开题报告</td><td class="code">开题报告.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>文献综述</td><td class="code">文献综述.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>外文原文及译文</td><td class="code">外文原文及译文.pdf</td><td class="required-tag">必选</td></tr>
+
+          <tr><td><strong>文件2</strong></td>
+            <td>图纸</td><td class="code">图纸-01-主电路图.pdf</td><td class="optional-tag">可选</td></tr>
+
+          <tr><td rowspan="3" style="text-align:center;vertical-align:middle;"><strong>文件3<br>评审+决议</strong></td>
+            <td>指导教师评审表</td><td class="code">指导教师评审表.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>评阅教师评审表</td><td class="code">评阅教师评审表.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>决议书</td><td class="code">决议书.pdf</td><td class="required-tag">必选</td></tr>
+
+          <tr><td rowspan="2" style="text-align:center;vertical-align:middle;"><strong>文件4<br>指导过程</strong></td>
+            <td>中期检查表</td><td class="code">中期检查表.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>毕业论文检查表</td><td class="code">检查表.pdf</td><td class="required-tag">必选</td></tr>
+
+          <tr><td rowspan="2" style="text-align:center;vertical-align:middle;"><strong>文件5<br>查重报告</strong></td>
+            <td>AIGC查重报告</td><td class="code">AIGC查重报告.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>传统查重报告</td><td class="code">查重报告.pdf</td><td class="required-tag">必选</td></tr>
+
+          <tr><td><strong>文件6</strong></td>
+            <td>毕业设计论文</td><td class="code" style="color:#0369a1;">自行准备，符合格式即可</td><td class="optional-tag">提醒</td></tr>
+        </tbody>
+      </table>`;
+  } else {
+    dom.materialChecklistContent.innerHTML = `
+      <table class="material-table">
+        <thead><tr><th>类别</th><th>所需文件</th><th>建议命名格式</th><th>要求</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="8" style="text-align:center;vertical-align:middle;"><strong>第一本<br>论文正文</strong></td>
+            <td>封面</td><td class="code">（含在论文.pdf 中）</td><td class="required-tag">必选</td></tr>
+          <tr><td>诚信承诺书</td><td class="code">（含在论文.pdf 中）</td><td class="required-tag">必选</td></tr>
+          <tr><td>中英文摘要</td><td class="code">（含在论文.pdf 中）</td><td class="required-tag">必选</td></tr>
+          <tr><td>目录</td><td class="code">（含在论文.pdf 中）</td><td class="required-tag">必选</td></tr>
+          <tr><td>正文</td><td class="code">（含在论文.pdf 中）</td><td class="required-tag">必选</td></tr>
+          <tr><td>参考文献</td><td class="code">（含在论文.pdf 中）</td><td class="required-tag">必选</td></tr>
+          <tr><td>附录</td><td class="code">（含在论文.pdf 中）</td><td class="optional-tag">可选</td></tr>
+          <tr><td>致谢</td><td class="code">（含在论文.pdf 中）</td><td class="required-tag">必选</td></tr>
+
+          <tr><td rowspan="7" style="text-align:center;vertical-align:middle;"><strong>第二本<br>资料册<br>（胶装）</strong></td>
+            <td>① 资料封面</td><td class="code">资料封面.pdf <span style="color:#991b1b;">（仅PDF）</span></td><td class="required-tag">必选</td></tr>
+          <tr><td>② 资料目录</td><td class="code" style="background:#d1fae5;">已内置，无需上传</td><td class="required-tag">自动</td></tr>
+          <tr><td>③ 任务书</td><td class="code">任务书.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>④ 开题报告</td><td class="code">开题报告.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>⑤ 文献综述</td><td class="code">文献综述.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>⑥ 外文原文及译文</td><td class="code">外文原文及译文.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>⑦ 中期检查表</td><td class="code">中期检查表.pdf</td><td class="required-tag">必选</td></tr>
+
+          <tr><td rowspan="6" style="text-align:center;vertical-align:middle;background:#fef2f2;"><strong>单独打印<br>（不胶装）</strong></td>
+            <td>指导教师评审表</td><td class="code">指导教师评审表.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>评阅教师评审表</td><td class="code">评阅教师评审表.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>答辩委员会决议书</td><td class="code">决议书.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>AIGC查重报告</td><td class="code">AIGC查重报告.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>传统查重报告</td><td class="code">查重报告.pdf</td><td class="required-tag">必选</td></tr>
+          <tr><td>毕业论文检查表</td><td class="code">检查表.pdf</td><td class="required-tag">必选</td></tr>
+
+          <tr><td><strong>第三部分</strong></td>
+            <td>图纸文件</td><td class="code">图纸-01-主电路图.pdf</td><td class="optional-tag">可选</td></tr>
+        </tbody>
+      </table>`;
+  }
+}
+
+// 初始化材料清单
+renderMaterialChecklist();
+
+// ============================================================
+// 自动处理流程
+// ============================================================
+function autoProcess() {
+  const stId = dom.studentId.value.trim();
+  const stName = dom.studentName.value.trim();
+  state.studentId = stId;
+  state.studentName = stName;
+
+  classifyFiles();
+  renderChecklist();
+}
+
+// ============================================================
+// 文件分类
+// ============================================================
+
+/** 判断 AI 是否已配置 */
+function isAIConfigured() {
+  return !!(dom.aiBaseUrl.value.trim() && dom.aiApiKey.value.trim() && dom.aiModel.value.trim());
+}
+
+/** 更新 AI 状态指示器 */
+function updateAIStatus(status, text) {
+  dom.aiStatusDot.className = 'api-status ' + status;
+  dom.aiStatusText.textContent = text;
+  dom.btnTestAI.disabled = !isAIConfigured();
+  dom.btnAIRecognize.disabled = !isAIConfigured() || state.files.length === 0;
+}
+
+// AI 智能识别按钮：手动触发一次 AI 分类
+dom.btnAIRecognize.addEventListener('click', async () => {
+  if (!isAIConfigured()) {
+    showMsg(dom.uploadMsg, '请先在 AI 配置面板中填写 API 信息', 'warning');
+    return;
+  }
+  const toClassify = state.files.filter(f =>
+    !(state.thesisFile && f.name === state.thesisFile.name && f.size === state.thesisFile.size)
+  );
+  if (toClassify.length === 0) {
+    showMsg(dom.uploadMsg, '没有可识别的文件', 'warning');
+    return;
+  }
+  dom.btnAIRecognize.disabled = true;
+  dom.btnAIRecognize.textContent = 'AI 识别中...';
+  showMsg(dom.uploadMsg, 'AI 正在分析文件名...', 'info');
+
+  try {
+    const aiResults = await aiClassifyFiles(toClassify);
+    if (!aiResults || !Array.isArray(aiResults)) {
+      showMsg(dom.uploadMsg, 'AI 返回结果为空，请检查 API 配置', 'error');
+      return;
+    }
+
+    // 用 AI 结果覆盖分类
+    state.classified = {};
+    state.classified['图纸'] = [];
+    for (const item of aiResults) {
+      const f = toClassify.find(x => x.name === item.fileName);
+      if (!f) continue;
+      const cat = item.category;
+      const matchedRule = CATEGORY_RULES.find(r => r.key === cat || cat.includes(r.key));
+      if (matchedRule) {
+        if (matchedRule.key === '图纸') {
+          state.classified['图纸'].push(f);
+        } else {
+          state.classified[matchedRule.key] = f;
+        }
+      } else if (cat.includes('图纸') || cat.includes('图')) {
+        state.classified['图纸'].push(f);
+      } else if (cat === '未分类' && f.type === 'image') {
+        state.classified['图纸'].push(f);
+      }
+    }
+
+    renderChecklist();
+    updateGenerateButton();
+    showMsg(dom.uploadMsg, `AI 识别完成，已分类 ${aiResults.length} 个文件`, 'success');
+  } catch (e) {
+    showMsg(dom.uploadMsg, 'AI 识别失败: ' + e.message.substring(0, 80), 'error');
+  } finally {
+    dom.btnAIRecognize.disabled = false;
+    dom.btnAIRecognize.textContent = 'AI 智能识别文件名';
+  }
+});
+
+// 监听 API 配置变更
+dom.aiBaseUrl.addEventListener('input', () => updateAIStatus('off', '未启用'));
+dom.aiApiKey.addEventListener('input', () => updateAIStatus('off', '未启用'));
+dom.aiModel.addEventListener('input', () => updateAIStatus('off', '未启用'));
+updateAIStatus('off', '未启用');
+
+/** AI 连接测试 */
+dom.btnTestAI.addEventListener('click', async () => {
+  if (!isAIConfigured()) {
+    updateAIStatus('off', '请先填写 API 信息');
+    return;
+  }
+  updateAIStatus('testing', '测试中...');
+  try {
+    const resp = await fetch(dom.aiBaseUrl.value.trim().replace(/\/+$/, '') + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + dom.aiApiKey.value.trim(),
+      },
+      body: JSON.stringify({
+        model: dom.aiModel.value.trim(),
+        messages: [{ role: 'user', content: '回复"OK"' }],
+        max_tokens: 10,
+        temperature: 0,
+      }),
+    });
+    if (resp.ok) {
+      updateAIStatus('on', '连接成功');
+    } else {
+      const err = await resp.text();
+      updateAIStatus('off', '连接失败: ' + (resp.status === 401 ? 'API Key 无效' : resp.status + ' ' + err.substring(0, 50)));
+    }
+  } catch (e) {
+    updateAIStatus('off', '连接失败: ' + e.message.substring(0, 40));
+  }
+});
+
+/** AI 辅助文件分类：将文件名列表发送给 AI，返回每个文件对应的类别 */
+async function aiClassifyFiles(fileList) {
+  const categories = CATEGORY_RULES.filter(r => r.key !== '图纸').map(r =>
+    `${r.key}（关键词：${r.keywords.join('、')}）`
+  ).join('\n');
+
+  const fileNames = fileList.map(f => `- ${f.name}`).join('\n');
+
+  const systemPrompt = `你是毕业设计归档系统的文件分类助手。根据文件名判断每个文件属于哪个类别。
+可用类别：
+${categories}
+图纸（关键词：图纸、A3、图号、电路图、结构图、装配图）
+
+规则：
+1. 每个文件只归入一个类别，优先匹配最具体的类别
+2. 无法归类的文件标记为"未分类"
+3. 只返回 JSON，格式：[{"fileName":"xxx","category":"类别名"},...]
+4. 不要输出任何 JSON 之外的内容`;
+
+  const userPrompt = `请分类以下文件：\n${fileNames}`;
+
+  try {
+    const resp = await fetch(dom.aiBaseUrl.value.trim().replace(/\/+$/, '') + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + dom.aiApiKey.value.trim(),
+      },
+      body: JSON.stringify({
+        model: dom.aiModel.value.trim(),
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 2000,
+        temperature: 0,
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!resp.ok) throw new Error('API 返回错误 ' + resp.status);
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || '[]';
+    // 尝试解析 JSON（可能被包裹在 ```json ``` 中）
+    const jsonStr = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error('AI 分类失败，回退到本地匹配:', e.message);
+    return null; // 返回 null 表示回退到本地匹配
+  }
+}
+
+let aiClassifyVersion = 0; // 版本号，防止过期 AI 结果覆盖
+
+/** 文件分类（本地匹配 + AI 后台增强） */
+function classifyFiles() {
+  state.classified = {};
+  state.classified['图纸'] = [];
+
+  // 收集待分类文件（排除论文主文件）
+  const toClassify = state.files.filter(f =>
+    !(state.thesisFile && f.name === state.thesisFile.name && f.size === state.thesisFile.size)
+  );
+
+  // 同步分类（先执行本地匹配，如果 AI 可用则在后台更新）
+  classifyFilesLocal(toClassify);
+
+  // 如果 AI 已配置，异步使用 AI 重新分类
+  if (isAIConfigured()) {
+    const myVersion = ++aiClassifyVersion; // 记录本次请求版本
+    aiClassifyFiles(toClassify).then(aiResults => {
+      if (aiClassifyVersion !== myVersion) return; // 过期结果，忽略
+      if (!aiResults || !Array.isArray(aiResults)) return;
+
+      // 用 AI 结果覆盖分类
+      state.classified = {};
+      state.classified['图纸'] = [];
+      injectBuiltinZiliaoMulu(); // AI 覆盖后重新注入内置资料目录
+
+      for (const item of aiResults) {
+        const f = toClassify.find(x => x.name === item.fileName);
+        if (!f) continue;
+
+        const cat = item.category;
+        // 查找匹配的类别规则
+        const matchedRule = CATEGORY_RULES.find(r => r.key === cat || cat.includes(r.key));
+        if (matchedRule) {
+          if (matchedRule.key === '图纸') {
+            state.classified['图纸'].push(f);
+          } else {
+            state.classified[matchedRule.key] = f;
+          }
+        } else if (cat.includes('图纸') || cat.includes('图')) {
+          state.classified['图纸'].push(f);
+        } else if (cat === '未分类' && f.type === 'image') {
+          state.classified['图纸'].push(f);
+        }
+      }
+
+      renderChecklist();
+      updateGenerateButton();
+      showMsg(dom.uploadMsg, 'AI 辅助分类完成', 'success');
+    }).catch(() => {
+      // AI 失败，保留本地分类结果，静默处理
+    });
+  }
+}
+
+/** 本地关键词匹配分类 */
+function classifyFilesLocal(fileList) {
+  for (const f of fileList) {
+    const name = f.name;
+    let matched = false;
+
+    for (const rule of CATEGORY_RULES) {
+      if (matchKeywords(name, rule.keywords)) {
+        if (rule.key === '图纸') {
+          state.classified['图纸'].push(f);
+        } else {
+          if (state.classified[rule.key] && rule.key !== '外文原文' && rule.key !== '外文译文') {
+            // 重复匹配，保留第一个
+          } else {
+            state.classified[rule.key] = f;
+          }
+        }
+        matched = true;
+        break;
+      }
+    }
+
+    // 未匹配的图片归入图纸
+    if (!matched && f.type === 'image') {
+      state.classified['图纸'].push(f);
+    }
+  }
+  injectBuiltinZiliaoMulu(); // 每次分类后自动注入内置资料目录
+}
+
+// 独立函数：注入内置资料目录（多处复用，防止 AI 回调擦除后丢失）
+function injectBuiltinZiliaoMulu() {
+  if (state.classified['资料目录']) return; // 用户已上传则跳过
+  try {
+    if (typeof EMBEDDED_ZILIAO_MULU_B64 === 'undefined' || !EMBEDDED_ZILIAO_MULU_B64) return;
+    var binaryStr = atob(EMBEDDED_ZILIAO_MULU_B64);
+    if (!binaryStr || binaryStr.length < 100) return;
+    var bytes = new Uint8Array(binaryStr.length);
+    for (var i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i) & 0xff;
+    var blob = new Blob([bytes], { type: 'application/pdf' });
+    var fakeFile = new File([blob], '资料目录.pdf', { type: 'application/pdf' });
+    state.classified['资料目录'] = { name: '资料目录.pdf', file: fakeFile, type: 'pdf', _builtin: true };
+    console.log('内置资料目录已自动注入');
+  } catch(e) { console.error('内置资料目录注入失败:', e); }
+}
+
+// ============================================================
+// 缺失检测清单（模式感知）
+// ============================================================
+function renderChecklist() {
+  const hasThesis = !!state.thesisFile;
+  if (!hasThesis && Object.keys(state.classified).length === 0) {
+    dom.checkCard.style.display = 'none';
+    dom.progressBar.style.display = 'none';
+    return;
+  }
+  dom.checkCard.style.display = 'block';
+
+  if (state.mode === 'print') {
+    renderChecklistPrint();
+  } else {
+    renderChecklistElectronic();
+  }
+
+  updateProgress();
+  updateGenerateButton();
+}
+
+function checklistItem(name, ok, optional) {
+  if (ok) return `<div class="checklist-item ok"><span class="icon-dot">&#9989;</span> ${name}</div>`;
+  if (optional) return `<div class="checklist-item warn"><span class="icon-dot">&#9888;</span> ${name}（可选）</div>`;
+  return `<div class="checklist-item missing"><span class="icon-dot">&#10060;</span> ${name}</div>`;
+}
+
+/** 最终打印版清单 */
+function renderChecklistPrint() {
+  let html = '<div class="checklist-section-title">第一本（论文正文）</div>';
+  html += '<div style="font-size:.78rem;color:#0369a1;margin-bottom:6px;display:flex;align-items:flex-start;gap:6px;"><span style="flex-shrink:0;">📘</span><span>打印所需第一本论文符合论文格式及打印要求即可，无需再做整理。本工具仅处理第二本及单独打印文件。</span></div>';
+
+  html += '<div class="checklist-section-title">第二本：资料册（胶装，共7项）</div>';
+  html += '<div style="font-size:.75rem;color:var(--text-muted);margin-bottom:6px;">注：资料那本的封面就用论文封面模板，在后面加"（资料）"字样</div>';
+
+  const book2Items = ['资料封面', '资料目录', '任务书', '开题报告', '文献综述', '中期检查表'];
+  const hasForeign = !!(state.classified['外文原文'] || state.classified['外文译文']);
+  for (const key of book2Items) {
+    // 资料目录已内置在网页中，始终标记为已就绪
+    const ok = (key === '资料目录') ? true : !!state.classified[key];
+    html += checklistItem(key, ok, false);
+  }
+  html += checklistItem('外文原文及译文', hasForeign, false);
+
+  html += '<div class="checklist-section-title">单独打印文件（不胶装进资料册，可选择核对）</div>';
+  html += '<div style="font-size:.75rem;color:#991b1b;margin-bottom:6px;">以下文件需单独打印。可上传文件自动核对，或手动勾选确认已备齐。</div>';
+
+  if (!state._manualVerify) state._manualVerify = {};
+  var sepItems = [
+    { key: '指导教师评审表', label: '指导教师评审表' },
+    { key: '评阅教师评审表', label: '评阅教师评审表' },
+    { key: '决议书', label: '答辩委员会决议书' },
+    { key: 'AIGC查重报告', label: 'AIGC查重报告' },
+    { key: '查重报告', label: '传统查重报告' },
+    { key: '检查表', label: '毕业论文检查表' },
+  ];
+  for (var i = 0; i < sepItems.length; i++) {
+    var item = sepItems[i];
+    var hasFile = !!state.classified[item.key];
+    var verified = !!state._manualVerify[item.key];
+    if (hasFile) {
+      html += '<div class="checklist-item ok"><span class="icon-dot">&#9989;</span> ' + item.label + '（已上传）</div>';
+    } else {
+      html += '<label class="checklist-item" style="cursor:pointer;' + (verified ? 'background:#f0fdf4;color:#166534;' : '') + '"><input type="checkbox" ' + (verified ? 'checked' : '') + ' onchange="state._manualVerify[\''+item.key+'\']=this.checked;renderChecklist();updateGenerateButton()"> ' + item.label + '（手动核实）</label>';
+    }
+  }
+
+  html += '<div class="checklist-section-title">第三部分：图纸</div>';
+  const drawings = state.classified['图纸'] || [];
+  html += checklistItem(`图纸文件 (${drawings.length} 个)`, drawings.length > 0, true);
+
+  dom.checklist.innerHTML = html;
+}
+
+/** 电子提交版清单 */
+function renderChecklistElectronic() {
+  if (!state._elecToggles) state._elecToggles = { f1: true, f3: true, f4: true, f5: true };
+  var h = '';
+
+  h += '<div class="checklist-section-title">文件1：任务书+开题+文献综述+外文原文及其译文</div>';
+  h += '<label class="checklist-item" style="cursor:pointer;"><input type="checkbox" ' + (state._elecToggles.f1 ? 'checked' : '') + ' onchange="state._elecToggles.f1=this.checked;renderChecklist();updateGenerateButton()"> 任务书+开题+文献综述+外文原文及其译文</label>';
+  h += checklistItem('  |-- 任务书', !!state.classified['任务书'], false);
+  h += checklistItem('  |-- 开题报告', !!state.classified['开题报告'], false);
+  h += checklistItem('  |-- 文献综述', !!state.classified['文献综述'], false);
+  h += checklistItem('  |-- 外文原文及译文', !!(state.classified['外文原文'] || state.classified['外文译文']), false);
+
+  h += '<div class="checklist-section-title">文件2：图纸文件夹（可选，按原文件名放入文件夹）</div>';
+  var drawings = state.classified['图纸'] || [];
+  h += checklistItem('图纸文件 (' + drawings.length + ' 个)', drawings.length > 0, true);
+
+  h += '<div class="checklist-section-title">文件3：指导教师评审表+评阅教师评审表+决议书</div>';
+  h += '<label class="checklist-item" style="cursor:pointer;"><input type="checkbox" ' + (state._elecToggles.f3 ? 'checked' : '') + ' onchange="state._elecToggles.f3=this.checked;renderChecklist();updateGenerateButton()"> 指导教师评审表+评阅教师评审表+决议书</label>';
+  h += checklistItem('  |-- 指导教师评审表', !!state.classified['指导教师评审表'], false);
+  h += checklistItem('  |-- 评阅教师评审表', !!state.classified['评阅教师评审表'], false);
+  h += checklistItem('  |-- 决议书', !!state.classified['决议书'], false);
+
+  h += '<div class="checklist-section-title">文件4：指导过程（中期检查表+检查表）</div>';
+  h += '<label class="checklist-item" style="cursor:pointer;"><input type="checkbox" ' + (state._elecToggles.f4 ? 'checked' : '') + ' onchange="state._elecToggles.f4=this.checked;renderChecklist();updateGenerateButton()"> 指导过程记录</label>';
+  h += checklistItem('  |-- 中期检查表', !!state.classified['中期检查表'], false);
+  h += checklistItem('  |-- 毕业论文检查表', !!state.classified['检查表'], false);
+
+  h += '<div class="checklist-section-title">文件5：查重报告（AIGC+传统，各取第一页合为两页）</div>';
+  h += '<label class="checklist-item" style="cursor:pointer;"><input type="checkbox" ' + (state._elecToggles.f5 ? 'checked' : '') + ' onchange="state._elecToggles.f5=this.checked;renderChecklist();updateGenerateButton()"> 查重报告</label>';
+  h += checklistItem('  |-- AIGC查重报告（取第一页）', !!state.classified['AIGC查重报告'], false);
+  h += checklistItem('  |-- 传统查重报告（取第一页）', !!state.classified['查重报告'], false);
+
+  h += '<div class="checklist-section-title">文件6：毕业设计论文</div>';
+  h += '<div style="font-size:.82rem;color:#0369a1;padding:6px 10px;background:#f0f9ff;border-radius:6px;">文件6为符合格式的论文PDF即可，由学生自行准备，无需在此上传或处理。</div>';
+
+  dom.checklist.innerHTML = h;
+}
+
+/** 进度条 */
+function updateProgress() {
+  let completed = 0, total = 0;
+
+  if (state.mode === 'print') {
+    total = 13; // 7(资料册) + 6(单独打印)
+    var allCheck = ['资料封面','资料目录','任务书','开题报告','文献综述','中期检查表'];
+    for (var i = 0; i < allCheck.length; i++) { if (state.classified[allCheck[i]]) completed++; }
+    if (state.classified['外文原文'] || state.classified['外文译文']) completed++;
+    // 单独打印文件：已上传或手动核实均计数
+    var sepKeys = ['指导教师评审表','评阅教师评审表','决议书','AIGC查重报告','查重报告','检查表'];
+    var mv = state._manualVerify || {};
+    for (var j = 0; j < sepKeys.length; j++) { if (state.classified[sepKeys[j]] || mv[sepKeys[j]]) completed++; }
+  } else {
+    total = 12;
+    var eCheck = ['任务书','开题报告','文献综述','指导教师评审表','评阅教师评审表','决议书','中期检查表','检查表','AIGC查重报告','查重报告'];
+    for (var i = 0; i < eCheck.length; i++) { if (state.classified[eCheck[i]]) completed++; }
+    if (state.classified['外文原文'] || state.classified['外文译文']) completed++;
+  }
+
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  dom.progressBar.style.display = 'block';
+  dom.progressFill.style.width = pct + '%';
+}
+
+/** 生成按钮状态 */
+function updateGenerateButton() {
+  if (!dom.studentId.value.trim() || !dom.studentName.value.trim()) {
+    dom.btnGenerate.disabled = true;
+    return;
+  }
+
+  if (state.mode === 'print') {
+    // 资料册项目（必须上传）
+    const book2Required = ['资料封面','资料目录','任务书','开题报告','文献综述','中期检查表'];
+    const book2OK = book2Required.every(k => state.classified[k]);
+    const hasForeign = !!(state.classified['外文原文'] || state.classified['外文译文']);
+    // 单独打印文件：已上传 或 手动核实 均可
+    var sepKeys = ['指导教师评审表','评阅教师评审表','决议书','AIGC查重报告','查重报告','检查表'];
+    var mv = state._manualVerify || {};
+    var allSepOK = sepKeys.every(function(k) { return !!state.classified[k] || !!mv[k]; });
+    dom.btnGenerate.disabled = !(book2OK && hasForeign && allSepOK);
+  } else {
+    // 电子版：仅检查勾选的文件类别是否齐全
+    var tog = state._elecToggles || {};
+    var allOK = true;
+    if (tog.f1 !== false) {
+      if (!(['任务书','开题报告','文献综述'].every(function(k){return !!state.classified[k];}))) allOK = false;
+      if (!(state.classified['外文原文'] || state.classified['外文译文'])) allOK = false;
+    }
+    if (tog.f3 !== false) {
+      if (!(['指导教师评审表','评阅教师评审表','决议书'].every(function(k){return !!state.classified[k];}))) allOK = false;
+    }
+    if (tog.f4 !== false) {
+      if (!(['中期检查表','检查表'].every(function(k){return !!state.classified[k];}))) allOK = false;
+    }
+    if (tog.f5 !== false) {
+      if (!(['AIGC查重报告','查重报告'].every(function(k){return !!state.classified[k];}))) allOK = false;
+    }
+    dom.btnGenerate.disabled = !allOK;
+  }
+}
+
+// ============================================================
+// 监听输入变化
+// ============================================================
+dom.studentId.addEventListener('input', () => {
+  state.studentId = dom.studentId.value.trim();
+  updateGenerateButton();
+});
+dom.studentName.addEventListener('input', () => {
+  state.studentName = dom.studentName.value.trim();
+  updateGenerateButton();
+});
+
+// ============================================================
+// 生成归档文件
+// ============================================================
+dom.btnGenerate.addEventListener('click', async () => {
+  if (!state.studentId || !state.studentName) {
+    showMsg(dom.genMsg, '请先填写学号和姓名', 'error');
+    return;
+  }
+  dom.btnGenerate.disabled = true;
+  showMsg(dom.genMsg, '<span class="spinner"></span> 正在生成归档文件，请稍候...', 'info');
+
+  try {
+    const sid = state.studentId;
+    const sname = state.studentName;
+    const zip = new JSZip();
+
+    if (state.mode === 'print') {
+      await buildPrintModeZip(zip, sid, sname);
+    } else {
+      await buildElectronicModeZip(zip, sid, sname);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const zipName = state.mode === 'print'
+      ? `${sid}-${sname}-毕业设计归档.zip`
+      : `${sid}+${sname}.zip`;
+    saveAs(zipBlob, zipName);
+
+    showMsg(dom.genMsg, '归档文件生成成功！ZIP 已自动下载。', 'success');
+  } catch (err) {
+    console.error('生成归档文件失败:', err);
+    showMsg(dom.genMsg, `生成失败: ${err.message}`, 'error');
+  } finally {
+    dom.btnGenerate.disabled = false;
+  }
+});
+
+// ============================================================
+// 最终打印版 ZIP 构建
+// ============================================================
+async function buildPrintModeZip(zip, sid, sname) {
+  // 资料册（仅7项，胶装用）
+  const book2PdfBytes = await buildBook2Print();
+  zip.file(`02-${sid}-${sname}-过程资料.pdf`, book2PdfBytes);
+
+  // 单独打印文件（不胶装进资料册）
+  const separateItems = [
+    { key: '指导教师评审表', name: '指导教师评审表' },
+    { key: '评阅教师评审表', name: '评阅教师评审表' },
+    { key: '决议书',         name: '答辩委员会决议书' },
+    { key: '检查表',         name: '毕业论文检查表' },
+  ];
+
+  let sepIdx = 3;
+  for (const item of separateItems) {
+    const entry = state.classified[item.key];
+    if (entry) {
+      const pdfBytes = await fileToPdfBytes(entry);
+      const seq = String(sepIdx).padStart(2, '0');
+      zip.file(`${seq}-${sid}-${sname}-${item.name}.pdf`, pdfBytes);
+      sepIdx++;
+    }
+  }
+
+  // 查重报告（AIGC第1页+传统第1页，单独文件）
+  const checkBytes = await buildCheckReport();
+  if (checkBytes && checkBytes.byteLength > 50) {
+    const seq = String(sepIdx).padStart(2, '0');
+    zip.file(`${seq}-${sid}-${sname}-查重报告.pdf`, checkBytes);
+    sepIdx++;
+  }
+
+  // 图纸文件夹
+  const drawings = state.classified['图纸'] || [];
+  if (drawings.length > 0) {
+    const drawingFolder = zip.folder('图纸');
+    let drawIdx = 0;
+    for (const df of drawings) {
+      drawIdx++;
+      const seq = String(drawIdx).padStart(2, '0');
+      const desc = df.name.replace(/\.[^.]+$/, '');
+      const pdfBytes = await fileToPdfBytes(df);
+      drawingFolder.file(`图纸-${seq}-${desc}.pdf`, pdfBytes);
+    }
+  }
+}
+
+// ============================================================
+// 电子提交版 ZIP 构建
+// ============================================================
+async function buildElectronicModeZip(zip, sid, sname) {
+  const tog = state._elecToggles || {};
+
+  // 文件1：任务书+开题报告+文献综述+外文原文及其译文
+  if (tog.f1 !== false) {
+    const file1Bytes = await mergeCategories(['任务书','开题报告','文献综述','外文原文','外文译文'], false);
+    zip.file(`${sid}+${sname}+任务书+开题报告+文献综述+外文原文及其译文.pdf`, file1Bytes);
+  }
+
+  // 文件2：图纸文件夹（不合并为PDF，始终包含如有图纸）
+  const drawings = state.classified['图纸'] || [];
+  if (drawings.length > 0) {
+    const drawingFolder = zip.folder(`${sid}+${sname}+图纸`);
+    for (const df of drawings) {
+      const data = await df.file.arrayBuffer();
+      drawingFolder.file(df.name, data);
+    }
+  }
+
+  // 文件3：指导教师评审表+评阅教师评审表+决议书
+  if (tog.f3 !== false) {
+    const file3Bytes = await mergeCategories(['指导教师评审表','评阅教师评审表','决议书'], false);
+    zip.file(`${sid}+${sname}+指导老师评阅表+评阅老师成绩评审表+决议书.pdf`, file3Bytes);
+  }
+
+  // 文件4：指导过程（中期检查表+检查表）
+  if (tog.f4 !== false) {
+    const file4Bytes = await mergeCategories(['中期检查表','检查表'], false);
+    zip.file(`${sid}+${sname}+指导过程.pdf`, file4Bytes);
+  }
+
+  // 文件5：查重报告（AIGC第一页+传统第一页，共两页）
+  if (tog.f5 !== false) {
+    const file5Bytes = await buildCheckReport();
+    zip.file(`${sid}+${sname}+查重报告.pdf`, file5Bytes);
+  }
+
+  // 文件6（毕业设计论文）根据提醒由学生自行准备，不在此打包
+}
+
+// ============================================================
+// 共享辅助函数
+// ============================================================
+
+/** 将文件对象转为 PDF bytes */
+async function fileToPdfBytes(entry) {
+  const data = await entry.file.arrayBuffer();
+  if (entry.type === 'pdf') return data;
+  if (entry.type === 'image') return await imageToPdfBytes(data, entry.name);
+  if (entry.type === 'docx') return await docxToPdfBytes(data);
+  if (entry.type === 'doc') {
+    // .doc 旧版格式无法自动转换，生成占位提醒页
+    return await createPlaceholderPdf(
+      `⚠ 旧版格式提示`,
+      `文件 "${entry.name}" 为旧版 .doc 格式（Word 97-2003），浏览器无法自动转换为 PDF。`,
+      `请用 Microsoft Word 打开此文件，另存为 .docx 或 PDF 格式后重新上传。`,
+      `原始 .doc 文件已保留在归档包中，请手动处理。`
+    );
+  }
+  throw new Error('不支持的文件类型: ' + entry.type);
+}
+
+/** 生成占位提醒 PDF（用于无法自动转换的文件） */
+async function createPlaceholderPdf(title, ...lines) {
+  const scale = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = 595 * scale;
+  canvas.height = 842 * scale;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 红色边框提醒
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 4 * scale;
+  ctx.setLineDash([10 * scale, 5 * scale]);
+  ctx.strokeRect(20 * scale, 20 * scale, canvas.width - 40 * scale, canvas.height - 40 * scale);
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#991b1b';
+  ctx.font = `bold ${16 * scale}px "PingFang SC","Microsoft YaHei",sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(title, canvas.width / 2, 150 * scale);
+
+  ctx.fillStyle = '#1e293b';
+  ctx.font = `${12 * scale}px "PingFang SC","Microsoft YaHei",sans-serif`;
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], canvas.width / 2, (220 + i * 36) * scale);
+  }
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const resp = await fetch(dataUrl);
+  const pngBytes = await resp.arrayBuffer();
+
+  const doc = await PDFLib.PDFDocument.create();
+  const img = await doc.embedPng(pngBytes);
+  const page = doc.addPage([595, 842]);
+  page.drawImage(img, { x: 0, y: 0, width: 595, height: 842 });
+  return await doc.save();
+}
+
+/** 按类别键合并多个文件为一个 PDF */
+async function mergeCategories(keys, firstPageOnly) {
+  const mergedDoc = await PDFLib.PDFDocument.create();
+  const processed = new Set();
+
+  for (const key of keys) {
+    const entry = state.classified[key];
+    if (!entry) continue;
+    const fileKey = entry.name + '_' + entry.file.size;
+    if (processed.has(fileKey)) continue;
+    processed.add(fileKey);
+
+    try {
+      const docBytes = await fileToPdfBytes(entry);
+      const srcDoc = await PDFLib.PDFDocument.load(docBytes);
+      if (firstPageOnly && srcDoc.getPageCount() > 0) {
+        const [page] = await mergedDoc.copyPages(srcDoc, [0]);
+        mergedDoc.addPage(page);
+      } else {
+        const pages = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+        pages.forEach(p => mergedDoc.addPage(p));
+      }
+    } catch (e) { console.error(`合并 ${key} 失败:`, e); }
+  }
+
+  return await mergedDoc.save();
+}
+
+/** 构建查重报告（AIGC第一页 + 传统第一页，共两页）
+ *  使用 pdf.js 渲染每页 → Canvas → PNG → 嵌入新PDF
+ *  这是最可靠的方式，兼容任何 PDF（加密/图片型/文本型） */
+async function buildCheckReport() {
+  const mergedDoc = await PDFLib.PDFDocument.create();
+
+  // AIGC查重报告第一页
+  const aigc = state.classified['AIGC查重报告'];
+  if (aigc) {
+    try {
+      const pageImg = await renderPdfFirstPage(aigc.file);
+      if (pageImg) {
+        const pngImage = await mergedDoc.embedPng(pageImg);
+        const page = mergedDoc.addPage([595, 842]);
+        const { width, height } = pngImage;
+        const scale = Math.min(595 / width, 842 / height);
+        page.drawImage(pngImage, {
+          x: (595 - width * scale) / 2,
+          y: (842 - height * scale) / 2,
+          width: width * scale,
+          height: height * scale,
+        });
+      }
+    } catch (e) { console.error('AIGC查重报告处理失败:', e); }
+  }
+
+  // 传统查重报告第一页
+  const trad = state.classified['查重报告'];
+  if (trad) {
+    try {
+      const pageImg = await renderPdfFirstPage(trad.file);
+      if (pageImg) {
+        const pngImage = await mergedDoc.embedPng(pageImg);
+        const page = mergedDoc.addPage([595, 842]);
+        const { width, height } = pngImage;
+        const scale = Math.min(595 / width, 842 / height);
+        page.drawImage(pngImage, {
+          x: (595 - width * scale) / 2,
+          y: (842 - height * scale) / 2,
+          width: width * scale,
+          height: height * scale,
+        });
+      }
+    } catch (e) { console.error('传统查重报告处理失败:', e); }
+  }
+
+  return await mergedDoc.save();
+}
+
+/** 使用 pdf.js 渲染 PDF 的第1页，返回 PNG ArrayBuffer
+ *  注意：不用 pdf-lib copyPages，因为图片型PDF复制后页面为空白 */
+async function renderPdfFirstPage(file) {
+  const arrayBuf = await file.arrayBuffer();
+  return await renderPdfBytesToImage(arrayBuf);
+}
+
+/** 用 pdf.js 将 PDF bytes 的第1页渲染为高清 PNG，返回 ArrayBuffer */
+async function renderPdfBytesToImage(pdfBytes) {
+  const pdf = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2.0 }); // 2x 高清
+
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const resp = await fetch(dataUrl);
+  return await resp.arrayBuffer();
+}
+
+/** 构建第二本：资料册 PDF（仅7项，胶装用）
+ *  顺序：封面 → 目录 → 任务书 → 开题报告 → 文献综述 → 外文原文及译文 → 中期检查表 */
+async function buildBook2Print() {
+  const mergedDoc = await PDFLib.PDFDocument.create();
+  const processedFiles = new Set();
+
+  async function appendCategory(key, optional) {
+    let entry = state.classified[key];
+    if (!entry && key === '外文译文' && state.classified['外文原文']) return;
+    if (!entry && key === '外文原文' && state.classified['外文译文']) entry = state.classified['外文译文'];
+    if (!entry) {
+      if (!optional) console.warn(`资料册缺少: ${key}`);
+      return;
+    }
+    const fileKey = entry.name + '_' + entry.file.size;
+    if (processedFiles.has(fileKey)) return;
+    processedFiles.add(fileKey);
+    try {
+      const docBytes = await fileToPdfBytes(entry);
+      const srcDoc = await PDFLib.PDFDocument.load(docBytes);
+      const pages = await mergedDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+      pages.forEach(p => mergedDoc.addPage(p));
+    } catch (err) { console.error(`处理 ${key} 失败:`, err); }
+  }
+
+  // 严格按顺序：①~⑦（仅7项，不含单独打印文件）
+  await appendCategory('资料封面', false);      // ① 封面
+  await appendCategory('资料目录', false);      // ② 目录（内置，无需上传）
+  await appendCategory('任务书', false);        // ③ 任务书
+  await appendCategory('开题报告', false);      // ④ 开题报告
+  await appendCategory('文献综述', false);      // ⑤ 文献综述
+  await appendCategory('外文原文', false);      // ⑥ 先原文
+  await appendCategory('外文译文', false);      // ⑥ 后译文
+  await appendCategory('中期检查表', false);    // ⑦ 中期检查表
+
+  if (mergedDoc.getPageCount() === 0) {
+    throw new Error('资料册生成失败：没有任何页面被合并。');
+  }
+  return await mergedDoc.save();
+}
+
+// ============================================================
+// 文件格式转换
+// ============================================================
+
+/** 图片转 PDF bytes —— 支持所有浏览器可渲染的图片格式 */
+async function imageToPdfBytes(imgArrayBuffer, fileName) {
+  // 将图片通过 Canvas 统一转为 PNG，确保 pdf-lib 能处理任意格式(GIF/BMP/WebP等)
+  const blob = new Blob([imgArrayBuffer]);
+  const imgUrl = URL.createObjectURL(blob);
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('图片加载失败'));
+    image.src = imgUrl;
+  });
+  URL.revokeObjectURL(imgUrl);
+
+  // A4 比例: 595 x 842 pt，渲染到 2x Canvas
+  const scale = 2;
+  const pageW = 595, pageH = 842;
+  const canvas = document.createElement('canvas');
+  canvas.width = pageW * scale;
+  canvas.height = pageH * scale;
+  const ctx = canvas.getContext('2d');
+
+  // 白色背景
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 缩放图片适配页面
+  const margin = 30 * scale;
+  const maxW = canvas.width - margin * 2;
+  const maxH = canvas.height - margin * 2;
+  let w = img.naturalWidth, h = img.naturalHeight;
+  if (w > maxW) { h = h * (maxW / w); w = maxW; }
+  if (h > maxH) { w = w * (maxH / h); h = maxH; }
+  const x = (canvas.width - w) / 2;
+  const y = (canvas.height - h) / 2;
+
+  ctx.drawImage(img, x, y, w, h);
+
+  // Canvas → PNG → PDF
+  const dataUrl = canvas.toDataURL('image/png');
+  const resp = await fetch(dataUrl);
+  const pngBytes = await resp.arrayBuffer();
+
+  const doc = await PDFLib.PDFDocument.create();
+  const pngImage = await doc.embedPng(pngBytes);
+  const page = doc.addPage([pageW, pageH]);
+  page.drawImage(pngImage, { x: 0, y: 0, width: pageW, height: pageH });
+  return await doc.save();
+}
+
+/** Word (.docx) 转 PDF bytes —— 使用 Canvas 渲染中文字体后嵌入 PDF */
+async function docxToPdfBytes(docxArrayBuffer) {
+  // 使用 mammoth.js 提取纯文本
+  const result = await mammoth.extractRawText({ arrayBuffer: docxArrayBuffer });
+  const text = result.value;
+  if (!text || !text.trim()) {
+    // 空文档，返回单页空白 PDF
+    const doc = await PDFLib.PDFDocument.create();
+    doc.addPage([595, 842]);
+    return await doc.save();
+  }
+
+  // 使用 Canvas 逐页渲染文本（支持中文字体），再嵌入 PDF
+  const doc = await PDFLib.PDFDocument.create();
+  const scale = 2;            // 2x 分辨率，确保文字在 PDF 中清晰
+  const canvasW = 595 * scale;
+  const canvasH = 842 * scale;
+  const fontSize = 14 * scale;  // 2x 下用 28px 渲染，嵌入 PDF 后等效 14pt
+  const lineHeight = fontSize * 1.6;
+  const marginX = 50 * scale;
+  const marginY = 50 * scale;
+  const contentW = canvasW - marginX * 2;
+  const charsPerLine = Math.floor(contentW / fontSize);
+  const linesPerPage = Math.floor((canvasH - marginY * 2) / lineHeight);
+
+  // 分行
+  const allLines = [];
+  const paragraphs = text.split('\n');
+  for (const para of paragraphs) {
+    if (para.trim() === '') {
+      allLines.push('');
+      continue;
+    }
+    // 按字符数换行
+    let remaining = para;
+    while (remaining.length > 0) {
+      if (remaining.length <= charsPerLine) {
+        allLines.push(remaining);
+        break;
+      }
+      allLines.push(remaining.substring(0, charsPerLine));
+      remaining = remaining.substring(charsPerLine);
+    }
+  }
+
+  // 分页渲染
+  const totalPages = Math.max(1, Math.ceil(allLines.length / linesPerPage));
+  for (let p = 0; p < totalPages; p++) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d');
+
+    // 白色背景
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasW, canvasH);
+
+    // 文字
+    ctx.fillStyle = '#000000';
+    ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", "SimSun", "Noto Sans SC", sans-serif`;
+    ctx.textBaseline = 'top';
+
+    const startLine = p * linesPerPage;
+    const endLine = Math.min(startLine + linesPerPage, allLines.length);
+    for (let i = startLine; i < endLine; i++) {
+      const y = marginY + (i - startLine) * lineHeight;
+      if (y > canvasH - marginY) break;
+      ctx.fillText(allLines[i], marginX, y);
+    }
+
+    // Canvas → PNG → PDF 页面
+    const dataUrl = canvas.toDataURL('image/png');
+    const resp = await fetch(dataUrl);
+    const pngBytes = await resp.arrayBuffer();
+    const pngImage = await doc.embedPng(pngBytes);
+    const page = doc.addPage([595, 842]);
+    page.drawImage(pngImage, { x: 0, y: 0, width: 595, height: 842 });
+  }
+
+  return await doc.save();
+}
+
+// ============================================================
+// 重置按钮
+// ============================================================
+dom.btnReset.addEventListener('click', () => {
+  if (confirm('确定要重置全部数据吗？此操作不可撤销。')) {
+    state.files = [];
+    state.thesisFile = null;
+    state.thesisBytes = null;
+    state.classified = {};
+    dom.studentId.value = '';
+    dom.studentName.value = '';
+    state.studentId = '';
+    state.studentName = '';
+    dom.fileList.innerHTML = '';
+    dom.checkCard.style.display = 'none';
+    dom.progressBar.style.display = 'none';
+    dom.btnGenerate.disabled = true;
+    hideMsg(dom.uploadMsg);
+    hideMsg(dom.genMsg);
+  }
+});
+
+// ============================================================
+// 初始化
+// ============================================================
+dom.btnGenerate.disabled = true;
+
+console.log('毕业设计归档助手已就绪');
+console.log('支持格式: PDF, Word(.docx), 图片(PNG/JPG)');
+console.log('使用说明:');
+console.log('  1. 填写学号和姓名');
+console.log('  2. 上传论文.pdf 和其他材料文件');
+console.log('  3. 系统自动识别论文各部分页码范围');
+console.log('  4. 检查并调整页码范围，确认拆分结果');
+console.log('  5. 检查缺失项清单，补充未上传的材料');
+console.log('  6. 点击"生成归档文件"打包下载 ZIP');
+</script>
+
+</body>
+</html>
