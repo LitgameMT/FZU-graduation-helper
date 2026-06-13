@@ -36,7 +36,7 @@
 3. 无需构建、无需服务器，双击即用
 
 ### 在线使用
-登录网站 https://LitgameMT.github.io/FZU-graduation-helper/”即可
+登录网站 https://LitgameMT.github.io/FZU-graduation-helper/
 
 ### 目录结构
 
