@@ -5,6 +5,11 @@
 
 ## 功能概览
 
+### 规范依据
+
+《福州大学本科生毕业设计（论文）工作管理办法》2019年发。
+<img width="1362" height="759" alt="9c93ad8d4f0bb7b967b92ccd550eb0dd" src="https://github.com/user-attachments/assets/fd8907c9-a054-48d1-86d8-f9d7fa2474c3" />
+
 ### 两种归档模式
 
 | 模式 | 用途 | 输出 |
@@ -13,8 +18,6 @@
 | **电子提交版** | 按学校要求生成 5 个交付物 | 任务书+开题+文献综述+外文、评审表+决议书、指导过程、查重报告 等合并 PDF |
 
 ### 核心功能
-<img width="2474" height="1002" alt="image" src="https://github.com/user-attachments/assets/44af4cfd-296a-4e0c-8218-3b2b4ac3948c" />
-
 - **文件智能分类**：按文件名关键词自动匹配到对应的归档类别
 - **AI 辅助识别**（可选）：接入 OpenAI 兼容 API 后，用 AI 语义匹配文件名，提高分类准确率
 - **PDF 合并**：按学校规范的顺序自动合并多个 PDF
